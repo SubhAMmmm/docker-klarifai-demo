@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'https://klarifai-docker-demo-a8dahxe4fwa8bja9.canadacentral-01.azurewebsites.net/api';
 
 // Create axios instance with base URL
 const apiClient = axios.create({

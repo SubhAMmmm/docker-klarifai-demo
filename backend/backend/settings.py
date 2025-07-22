@@ -33,7 +33,7 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 if not DEBUG:
     # Add production hosts
     ALLOWED_HOSTS.extend([
-        'your-webapp-name.azurewebsites.net',  # Update with your actual webapp name
+        'https://green-stone-0c602000f.1.azurestaticapps.net',  # Update with your actual webapp name
         'your-custom-domain.com',  # Add any custom domains
     ])
 
@@ -163,11 +163,12 @@ if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173",  # React development server
-        "http://localhost:3000",  # Alternative React port
+        "http://localhost:3000", 
+        'https://green-stone-0c602000f.1.azurestaticapps.net' # Alternative React port
     ]
 else:
     CORS_ALLOWED_ORIGINS = [
-        "https://your-staticwebapp.azurestaticapps.net",  # Update with your static web app URL
+        "https://green-stone-0c602000f.1.azurestaticapps.net",  # Update with your static web app URL
         "https://your-custom-domain.com",  # Add any custom domains
     ]
 
