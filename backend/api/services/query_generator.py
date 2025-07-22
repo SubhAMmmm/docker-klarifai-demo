@@ -6,7 +6,19 @@ from typing import Dict, List, Tuple
 import logging
 from django.conf import settings
 from langchain.prompts import PromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Try different import approaches based on library version
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    LANGCHAIN_GOOGLE_GENAI_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_GOOGLE_GENAI_AVAILABLE = False
+
+try:
+    import google.generativeai as genai
+    GENAI_AVAILABLE = True
+except ImportError:
+    GENAI_AVAILABLE = False
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -59,18 +71,104 @@ Generate only the PostgreSQL-compatible SQL query:
     )
 
 def initialize_llm():
-    """Initialize the language model for query generation"""
+    """Initialize the language model for query generation with fallback options"""
+    # List of model names to try (from newest to oldest)
+    model_names = [
+        "gemini-1.5-pro",
+        "gemini-1.5-flash", 
+        "gemini-pro",
+        "gemini-1.0-pro"
+    ]
+    
     try:
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
-            temperature=0.0,
-            google_api_key=settings.GOOGLE_API_KEY,
-            convert_system_message_to_human=True
-        )
-        return llm
+        # Option 1: Try with newer langchain-google-genai version
+        if LANGCHAIN_GOOGLE_GENAI_AVAILABLE:
+            for model_name in model_names:
+                try:
+                    # For newer versions, try without explicit client parameter
+                    llm = ChatGoogleGenerativeAI(
+                        model=model_name,
+                        temperature=0.0,
+                        google_api_key=settings.GOOGLE_API_KEY
+                    )
+                    # Test the connection
+                    test_response = llm.invoke("Test")
+                    logger.info(f"Successfully initialized LLM with model: {model_name}")
+                    return llm
+                except Exception as e:
+                    logger.warning(f"Failed with model {model_name}: {str(e)}")
+                    continue
+                    
+            # Try with additional parameters that might be required
+            for model_name in model_names:
+                try:
+                    llm = ChatGoogleGenerativeAI(
+                        model=model_name,
+                        temperature=0.0,
+                        google_api_key=settings.GOOGLE_API_KEY,
+                        convert_system_message_to_human=True
+                    )
+                    # Test the connection
+                    test_response = llm.invoke("Test")
+                    logger.info(f"Successfully initialized LLM with model: {model_name} (extended config)")
+                    return llm
+                except Exception as e:
+                    logger.warning(f"Failed with extended config for model {model_name}: {str(e)}")
+                    continue
+        
+        # Option 2: Fallback to direct Google Generative AI
+        if GENAI_AVAILABLE:
+            genai.configure(api_key=settings.GOOGLE_API_KEY)
+            return DirectGeminiLLM(model_names)
+        
+        raise Exception("No available LLM options. Please install langchain-google-genai or google-generativeai")
+        
     except Exception as e:
         logger.error(f"Failed to initialize LLM: {str(e)}")
         raise
+
+class DirectGeminiLLM:
+    """Direct wrapper for Google Generative AI when langchain integration fails"""
+    
+    def __init__(self, model_names=None):
+        if model_names is None:
+            model_names = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro", "gemini-1.0-pro"]
+        
+        self.model = None
+        # Try to initialize with available models
+        for model_name in model_names:
+            try:
+                self.model = genai.GenerativeModel(model_name)
+                # Test the model
+                test_response = self.model.generate_content("Test")
+                logger.info(f"Successfully initialized DirectGeminiLLM with model: {model_name}")
+                break
+            except Exception as e:
+                logger.warning(f"Failed to initialize DirectGeminiLLM with model {model_name}: {str(e)}")
+                continue
+        
+        if self.model is None:
+            raise Exception("Failed to initialize any Gemini model")
+    
+    def invoke(self, prompt):
+        """Invoke the model with a prompt"""
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.0,
+                    max_output_tokens=2000,
+                )
+            )
+            # Return object that mimics langchain response
+            class MockResponse:
+                def __init__(self, content):
+                    self.content = content
+            
+            return MockResponse(response.text)
+        except Exception as e:
+            logger.error(f"Direct Gemini API call failed: {str(e)}")
+            raise
 
 def extract_relevant_tables(question: str, schema_info: Dict) -> str:
     """Identify likely relevant tables based on question keywords"""
