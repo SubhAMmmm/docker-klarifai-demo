@@ -18,29 +18,33 @@ python-dotenv==1.0.1
 gunicorn==21.2.0
 whitenoise==6.6.0
 
-# AI/ML Libraries
-google-generativeai==0.3.2
-pandas==2.1.4
-numpy==1.24.4
-langchain==0.1.0
-openai==1.6.1
-langchain-community==0.0.13
-langchain-core==0.1.7
-langchain-google-genai==0.0.6
-plotly==5.17.0
+# AI/ML Libraries - Let pip resolve versions automatically
+google-generativeai
+pandas
+numpy
+
+# LangChain - Let pip resolve compatible versions
+langchain
+langchain-core
+langchain-community  
+langchain-google-genai
+openai
+
+# Visualization
+plotly
 
 # File Processing
 python-multipart==0.0.6
 Pillow==10.1.0
-openpyxl==3.1.2
-xlrd==2.0.1
+openpyxl
+xlrd
 
 # Async/Background Tasks
-celery==5.3.4
+celery
 
 # Utilities
-requests==2.31.0
-python-dateutil==2.8.2
+requests
+python-dateutil
 
 # Development/Debugging
-ipython==8.18.1
+ipython
