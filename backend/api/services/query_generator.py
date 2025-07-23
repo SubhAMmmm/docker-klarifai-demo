@@ -74,10 +74,10 @@ def initialize_llm():
     """Initialize the language model for query generation with fallback options"""
     # List of model names to try (from newest to oldest)
     model_names = [
-        "gemini-1.5-pro",
-        "gemini-1.5-flash", 
-        "gemini-pro",
-        "gemini-1.0-pro"
+       
+        "gemini-2.0-flash", 
+
+        
     ]
     
     try:
@@ -132,7 +132,7 @@ class DirectGeminiLLM:
     
     def __init__(self, model_names=None):
         if model_names is None:
-            model_names = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro", "gemini-1.0-pro"]
+            model_names = ["gemini-2.0-flash"]
         
         self.model = None
         # Try to initialize with available models
