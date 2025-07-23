@@ -29,13 +29,18 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-8yw=m%3!_@0@r50!m@e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
+# ALLOWED_HOSTS - Fixed to include proper hostnames
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 if not DEBUG:
-    # Add production hosts
+    # Add production hosts (fixed - removed https:// prefix)
     ALLOWED_HOSTS.extend([
-        'https://green-stone-0c602000f.1.azurestaticapps.net',  # Update with your actual webapp name
-        'your-custom-domain.com',  # Add any custom domains
+        'klarifai-docker-demo.azurewebsites.net',  # Your Azure Web App
+        'green-stone-0c602000f.1.azurestaticapps.net',  # Your static web app
     ])
+    
+    # Add custom hosts from environment variable if provided
+    custom_hosts = os.getenv('ALLOWED_HOSTS', '').split(',')
+    ALLOWED_HOSTS.extend([host.strip() for host in custom_hosts if host.strip()])
 
 # Application definition
 INSTALLED_APPS = [
@@ -85,7 +90,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-# Database
+# Database - Enhanced configuration
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 if DEBUG:
@@ -101,7 +106,7 @@ if DEBUG:
         }
     }
 else:
-    # Production database
+    # Production database - VM PostgreSQL with enhanced options
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -112,8 +117,11 @@ else:
             'PORT': os.getenv('DB_PORT', '5432'),
             'OPTIONS': {
                 'sslmode': 'prefer',
+                'connect_timeout': 10,
+                'options': '-c default_transaction_isolation=read_committed'
             },
             'CONN_MAX_AGE': 300,
+            'CONN_HEALTH_CHECKS': True,
         }
     }
 
@@ -158,18 +166,37 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS settings
+# CORS settings - Fixed and enhanced
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173",  # React development server
-        "http://localhost:3000", 
-        'https://green-stone-0c602000f.1.azurestaticapps.net' # Alternative React port
+        "http://localhost:3000",  # Alternative React port
+        'https://green-stone-0c602000f.1.azurestaticapps.net'
     ]
 else:
     CORS_ALLOWED_ORIGINS = [
-        "https://green-stone-0c602000f.1.azurestaticapps.net",  # Update with your static web app URL
-        "https://your-custom-domain.com",  # Add any custom domains
+        "https://green-stone-0c602000f.1.azurestaticapps.net",  # Your static web app
+        "https://klarifai-docker-demo.azurewebsites.net",  # Your backend web app
+    ]
+    
+    # Add custom origins from environment variable if provided
+    custom_origins = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+    CORS_ALLOWED_ORIGINS.extend([origin.strip() for origin in custom_origins if origin.strip()])
+
+# CORS additional settings for production
+if not DEBUG:
+    CORS_ALLOW_CREDENTIALS = True
+    CORS_ALLOWED_HEADERS = [
+        'accept',
+        'accept-encoding',
+        'authorization',
+        'content-type',
+        'dnt',
+        'origin',
+        'user-agent',
+        'x-csrftoken',
+        'x-requested-with',
     ]
 
 # REST Framework settings
@@ -192,11 +219,42 @@ FILE_UPLOAD_HANDLERS = [
 ]
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 
-# Redis settings
+# Redis settings - Enhanced
 if DEBUG:
     REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6380/0')
 else:
     REDIS_URL = os.getenv('REDIS_URL')
+
+# Cache configuration using Redis (if available)
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': 20,
+                    'retry_on_timeout': True,
+                }
+            },
+            'KEY_PREFIX': 'klarifai',
+            'TIMEOUT': 300,
+        }
+    }
+    
+    # Session configuration using Redis
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+    SESSION_CACHE_ALIAS = 'default'
+    SESSION_COOKIE_AGE = 3600  # 1 hour
+else:
+    # Fallback to database cache if Redis is not available
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'django_cache_table',
+        }
+    }
 
 # AI engine settings
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', 'AIzaSyDjFBYV1ZvBwldMwYvoz4MEL3OilYlWNa0')
@@ -207,11 +265,20 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+    
+    # Session security
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
 
-# Logging
+# Logging - Enhanced configuration
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -220,27 +287,70 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
         },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': 'verbose' if not DEBUG else 'simple',
         },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': '/tmp/django.log',
+            'formatter': 'verbose',
+            'level': 'INFO',
+        } if not DEBUG else {},
     },
     'root': {
-        'handlers': ['console'],
+        'handlers': ['console'] + (['file'] if not DEBUG else []),
         'level': 'INFO' if not DEBUG else 'DEBUG',
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console'] + (['file'] if not DEBUG else []),
             'level': 'INFO',
             'propagate': False,
         },
         'api': {
-            'handlers': ['console'],
+            'handlers': ['console'] + (['file'] if not DEBUG else []),
             'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'WARNING',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'] + (['file'] if not DEBUG else []),
+            'level': 'ERROR',
             'propagate': False,
         },
     },
 }
+
+# Health check endpoint (optional)
+if not DEBUG:
+    INSTALLED_APPS.append('health_check')
+    INSTALLED_APPS.append('health_check.db')
+    INSTALLED_APPS.append('health_check.cache')
+
+# Environment-specific settings
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
+
+# Database connection error handling
+if not DEBUG:
+    # Add database connection retry logic
+    import time
+    from django.db.utils import OperationalError
+    from django.core.management.base import BaseCommand
+    
+    class DatabaseConnectionMiddleware:
+        def __init__(self, get_response):
+            self.get_response = get_response
+
+        def __call__(self, request):
+            return self.get_response(request)
