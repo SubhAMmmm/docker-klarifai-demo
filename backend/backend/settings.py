@@ -24,12 +24,12 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 if not DEBUG:
     ALLOWED_HOSTS.extend([
         'klarifai-docker-demo.azurewebsites.net',
+        'klarifai-docker-demo-a8dahxe4fwa8bja9.canadacentral-01.azurewebsites.net',  # Add this line
         'green-stone-0c602000f.1.azurestaticapps.net',
     ])
     # Add custom hosts from environment variable
     custom_hosts = os.getenv('ALLOWED_HOSTS', '').split(',')
     ALLOWED_HOSTS.extend([host.strip() for host in custom_hosts if host.strip()])
-
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -158,7 +158,7 @@ else:
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',  # Change this for now
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
@@ -166,8 +166,10 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 100,
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
 }
-
 # File uploads
 FILE_UPLOAD_HANDLERS = [
     'django.core.files.uploadhandler.MemoryFileUploadHandler',
