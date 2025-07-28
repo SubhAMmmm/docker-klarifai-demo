@@ -55,15 +55,13 @@ jobs:
           # Navigate to application directory
           cd /opt/klarifai
           
-          # Pull latest code
-          if [ -d ".git" ]; then
-            echo "Updating existing repository..."
-            git fetch origin
-            git reset --hard origin/main
-          else
-            echo "Cloning repository..."
-            git clone ${{ secrets.REPO_URL }} .
-          fi
+          # Clean and clone repository
+          echo "Preparing repository..."
+          rm -rf * .[^.]* 2>/dev/null || true
+          git clone ${{ secrets.REPO_URL }} temp_repo
+          mv temp_repo/* . 2>/dev/null || true
+          mv temp_repo/.[^.]* . 2>/dev/null || true
+          rm -rf temp_repo
           
           # Create production environment file
           cat > .env.production << EOL
